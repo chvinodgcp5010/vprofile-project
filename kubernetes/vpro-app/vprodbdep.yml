@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: vprodb
   labels:
-    app: vprodb
+    app: vprodb                            # label for service definition file (service routes with this label)
 spec:
   selector:
     matchLabels:
@@ -18,25 +18,49 @@ spec:
       - name: vprodb
         image: vprofile/vprofiledb:V1
         args:
-         - "--ignore-db-dir=lost+found"
+         - "--ignore-db-dir=lost+found"                  
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: vpro-db-data
         ports:
         - name: vprodb-port
           containerPort: 3306
-        env:
+        env:                                               # env variable to pick mysql pwd
          - name: MYSQL_ROOT_PASSWORD
            valueFrom:
              secretKeyRef:
                name: app-secret
                key: db-pass
-      nodeSelector:
-        zone: us-east-2b
+      nodeSelector:                                        # because we have created EBS vlolume on this zone so mention same
+        zone: us-east-2b                                   # node running in this node we create label already (kubectl get no --show-labels)
       volumes:
         - name: vpro-db-data
           # This AWS EBS volume must already exist.
           awsElasticBlockStore:
              volumeID: vol-0cf3d659eba6861d4
-             fsType: ext4
+             fsType: ext4                                
+
+
+#1 problem is here 
+#pod will not be able to attach k8s volume because we have to give tag to attach to pod otherwise it give "permission denied error"
+#from console or cli
+
+Tag is 
+
+KubernetesCluster           tcscluster           (here kubernetes cluster name: tcscluster )              
+
+
+## 1 more error if roll this , error will come from pod "volume or storage is not free or not emoty, its already have data.
+when we format with ext4 it will create directory "lost+found" in linux .
+
+#if volume mount finding that already has data then it will not be mounted.
+So you have to pass argument to pod ==> if its there it will ignore it and attach volume.
+
+args:
+         - "--ignore-db-dir=lost+found"                 
+
+
+
+
+
 
